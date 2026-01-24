@@ -7,7 +7,7 @@ int printk(const char *fmt, ...);
 
 // Logging macros.
 #define LOG_ANSI_RESET_ATTRIBS_     "\033[0m"
-#define LOG_ANSI_SELECT_COLOR_BLU_  "\094[31m"
+#define LOG_ANSI_SELECT_COLOR_BLU_  "\033[94m"
 #define LOG_ANSI_SELECT_COLOR_RED_  "\033[31m"
 #define LOG_ANSI_SELECT_COLOR_YEL_  "\033[33m"
 
