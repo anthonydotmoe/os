@@ -391,7 +391,7 @@ L(begin_init):
 		/* lea	init_task,a2 */
 		/* lea	init_thread_union+THREAD_SIZE,sp */
 
-		bsr	start_kernel
+		jmp	start_kernel
 
 L(die):		stop	#0x2000
 		bra	L(die)
@@ -1285,6 +1285,8 @@ L(kernel_pgdir_ptr):
 		.long	0	/*   */
 L(temp_mmap_mem):
 		.long	0	/*   */
+L(duartbase):
+		.long	0	/*  68040pc 68681 DUART base address */
 
 /*  .data section */
 /* ------------------------------------------------------------------------------- */
@@ -1297,5 +1299,3 @@ cachemode_pgtable:
 		.long	0	/*  (global) cache mode for pagetable pages */
 cachemode_supervisor:
 		.long	0	/*  (global) cache mode for supervisor pages */
-L(duartbase):
-		.long	0	/*  68040pc 68681 DUART base address */
