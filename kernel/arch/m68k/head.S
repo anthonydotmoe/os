@@ -3,9 +3,6 @@
 #include "asm/bootinfo.h"
 #include "asm/bootinfo-a68040pc.h"
 
-#define DEBUG
-
-
 /*
  *  Startup code
  * --------------------------------------------------------------------------
@@ -283,11 +280,11 @@ L(test_nota68040pc):
 		move.l	a1,(a0)
 
 		/*  Welcome! and print debug information */
-		puts	"\nWelcome to the kernel!\n"
+		dputs	"\nWelcome to the kernel!\n"
 
-		puts	"The kernel is located at:"
-		putn	a1
-		putc	'\n'
+		dputs	"The kernel is located at:"
+		dputn	a1
+		dputc	'\n'
 
 L(configure_cachemodes):
 
@@ -336,10 +333,11 @@ L(mmu_init):
 
 L(mmu_init_done):
 
-		puts	"\nMMU Setup is complete\n"
+		dputs	"\nMMU Setup is complete\n"
 
+#ifdef DEBUG
 		//mmu_print L(kernel_pgdir_ptr)(pc)
-		putc	'\n'
+#endif
 
 L(mmu_fixup):
 #ifdef MMU_NOCACHE_KERNEL
@@ -367,12 +365,11 @@ L(mmu_fixup):
 L(mmu_fixup_done):
 
 		//mmu_print L(kernel_pgdir_ptr)(pc)
-		putc	'\n'
 
 L(begin_vm):
-		puts	"\nEngaging the MMU...\n"
+		dputs	"\nEngaging the MMU...\n"
 		mmu_engage
-		puts	" Done!\n"
+		dputs	" Done!\n"
 
 
 		/*  After this point no new memory is allocated and */
@@ -381,7 +378,7 @@ L(begin_vm):
 		move.l	L(memory_start),availmem
 
 L(enable_caches):
-		puts	"Enabling caches\n"
+		dputs	"Enabling caches\n"
 
 		nop
 		cpusha	bc
@@ -825,7 +822,6 @@ func_start	mmu_engage,d0-d2/a0-a3
 		/* Engage the 040 MMU */
 		//mmu_print a3
 L(mmu_decisive_moment):
-		putc '\n
 		nop			/*  sync pipeline */
 		cinva	bc		/*  invalidate both caches */
 		nop			/*  sync pipeline */
@@ -870,7 +866,7 @@ func_start	mmu_get_root_table_entry,d0/a1
 		move.l	a0,d0
 		and.w	#-PAGESIZE,d0
 
-		puts	"\n  First free page of memory at:"
+		dputs	"\n  First free page of memory at:"
 		dputn	d0
 		dputc	'\n'
 
@@ -902,7 +898,7 @@ func_start	mmu_get_root_table_entry,d0/a1
 		lea	L(kernel_pgdir_ptr)(pc),a1	// kernel root pointer -> a1
 		move.l	a0,(a1)				// *kernel root pointer = _stext
 
-		puts	"  The kernel pagetable root will be located at:"
+		dputs	"  The kernel pagetable root will be located at:"
 		dputn	a0
 		dputc	'\n'
 

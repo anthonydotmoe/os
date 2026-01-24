@@ -2,15 +2,8 @@
 #include "printk.h"
 #include "uart68681.h"
 
-/** libprintf provides this:
- * printf with output function
- * You may use this as dynamic alternative to printf() with its fixed _putchar() output
- * \param out An output function which takes one character and an argument pointer
- * \param arg An argument pointer for user data passed to output function
- * \param format A string that specifies the format of the output
- * \return The number of characters that are sent to the output function, not counting the terminating null character
- */
-extern int fctprintf(void (*out)(char character, void* arg), void* arg, const char* format, ...);
+/** libprintf provides this: */
+extern int vfctprintf(void (*out)(char, void*), void* arg, const char* fmt, va_list va);
 
 // Hard-coded DUART at 0x2000_0000 for now
 
@@ -36,7 +29,7 @@ int __init printk(const char *fmt, ...)
 {
     va_list va;
     va_start(va, fmt);
-    const int ret = fctprintf(&duart_putchar, NULL, fmt, va);
+    const int ret = vfctprintf(&duart_putchar, NULL, fmt, va);
     va_end(va);
     return ret;
 }

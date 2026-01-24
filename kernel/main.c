@@ -12,6 +12,8 @@ unsigned long bi_machtype;
 unsigned long bi_cputype;
 unsigned long bi_fputype;
 unsigned long bi_mmutype;
+extern unsigned long init_mapped_size;
+extern unsigned long availmem;
 
 #define NUM_MEMINFO 4
 #define MAX_CMDLINE 255
@@ -27,13 +29,20 @@ static void setup(char **cmdline_p) __init;
     === OS Entry Point ===
 
     head.S has arranged the following:
+    - Stack pointer is set to _stext (1KiB total)
+    - MMU is enabled and we are mapped in at vaddrs
+    - The first `init_mapped_size` bytes are available to us
+    - `availmem` has been set to first free physical page address
  */
-
-//TODO: Describe what head.S has arranged
-
 void __init __attribute__((__noreturn__)) start_kernel(void)
 {
-    printk("start_kernel big printing\n");
+    LOG_I("Welcome to the kernel!\n");
+    LOG("0x%08lx\n", bi_machtype);
+    LOG("0x%08lx\n", bi_cputype);
+    LOG("0x%08lx\n", bi_mmutype);
+    LOG("0x%08lx\n", bi_fputype);
+    LOG("init_mapped_size: 0x%08lx\n", init_mapped_size);
+    LOG("availmem: 0x%08lx\n", availmem);
 
     char* cmdline;
     setup(&cmdline);
@@ -54,6 +63,8 @@ static void __init parse_bootinfo(const struct bi_record *record)
         const void *data = record->data;
         uint16_t size = record->size;
 
+        LOG("got record id=0x%04x size=0x%04x\n", tag, size);
+
         switch(tag) {
         case BI_MACHTYPE:
         case BI_CPUTYPE:
@@ -71,10 +82,11 @@ static void __init parse_bootinfo(const struct bi_record *record)
                 num_memory++;
             } else
             {
-                printk("%s: too many memory chunks\n", __func__);
+                LOG("too many memory chunks\n");
             }
+            break;
         default:
-            printk("%s: unknown tag 0x%04x ignored\n", __func__);
+            LOG("unknown tag 0x%04x ignored\n", tag);
         }
 
         record = (struct bi_record*)((unsigned long)record + size);
