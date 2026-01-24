@@ -43,6 +43,7 @@
 #endif
 
 #define __init      __section(".init.text")
+#define __initconst __section(".init.rodata")
 #define __initdata  __section(".init.data")
 #define __exitdata  __section(".exit.data")
 #define __exit_call __used __section(".exitcall.exit")

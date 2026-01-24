@@ -5,6 +5,10 @@
 
 int printk(const char *fmt, ...);
 
+// Provided by libprintf
+#define snprintk  snprintf_
+int  snprintf_(char* buffer, size_t count, const char* format, ...);
+
 // Logging macros.
 #define LOG_ANSI_RESET_ATTRIBS_     "\033[0m"
 #define LOG_ANSI_SELECT_COLOR_BLU_  "\033[94m"

@@ -1,0 +1,7 @@
+kernel/arch/m68k
+
+Contains code specific to the m68k/68040pc architecture
+
+This might be a hack:
+This directory is called kernel/arch/m68k instead of kernel/arch to prevent
+inclusions meant for kernel/include/arch/*.h from being resolved to here.

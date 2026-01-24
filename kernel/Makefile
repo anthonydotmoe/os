@@ -10,7 +10,13 @@ CFLAGS   += -m68040 -g -ffreestanding -fno-builtin -Wall
 ASFLAGS  += -Wa,-m68040 -Wa,--register-prefix-optional
 LDFLAGS  += -T link.ld -Map=$(MAPOUT) --print-memory-usage --no-warn-rwx-segments
 
-SRCS_C	:= main.c printk.c
+SRCS_C	:= \
+	main.c \
+	printk.c \
+	lib/format.c \
+	arch/m68k/earlycon.c \
+	arch/m68k/setup.c
+
 SRCS_S	:= arch/m68k/head.S
 
 OBJS := $(SRCS_C:%.c=$(KOUT)/%.o) $(SRCS_S:%.S=$(KOUT)/%.o)
