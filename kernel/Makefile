@@ -1,0 +1,33 @@
+O ?= ../out
+KOUT := $(O)/kernel
+MAPOUT := $(KOUT)/kernel.map
+
+SYSROOT  := $(O)/sysroot
+CPPFLAGS += -Iinclude -I$(SYSROOT)/include
+CFLAGS   += -m68040 -g -ffreestanding -fno-builtin -Wall
+ASFLAGS  += -Wa,-m68040 -Wa,--register-prefix-optional
+LDFLAGS  += -T link.ld -Map=$(MAPOUT) --print-memory-usage --no-warn-rwx-segments
+
+SRCS_C	:= main.c
+SRCS_S	:= arch/m68k/head.S
+
+OBJS := $(SRCS_C:%.c=$(KOUT)/%.o) $(SRCS_S:%.S=$(KOUT)/%.o)
+DEPS := $(OBJS:.o=.d)
+
+all: $(KOUT)/kernel.elf
+
+$(KOUT)/kernel.elf: $(OBJS)
+	$(LD) -o $@ $(OBJS) $(LDFLAGS)
+
+$(KOUT)/%.o: %.c
+	@mkdir -p $(@D)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP -c -o $@ $<
+
+$(KOUT)/%.o: %.S
+	@mkdir -p $(@D)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(ASFLAGS) -MMD -MP -c -o $@ $<
+
+-include $(DEPS)
+
+clean:
+	rm -rf $(KOUT)
