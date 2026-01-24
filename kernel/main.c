@@ -1,11 +1,11 @@
 #include <stdint.h>
 
-#include "uart68681.h"
-#include "arch/m68k/init.h"
+#include "asm/init.h"
 #include "arch/m68k/irq.h"
 #include "asm/sections.h"
 #include "asm/bootinfo.h"
 #include "asm/bootinfo-a68040pc.h"
+#include "printk.h"
 
 // filled in by head.s
 unsigned long bi_machtype;
@@ -22,8 +22,6 @@ char cmdline[MAX_CMDLINE];
 
 static void setup(char **cmdline_p) __init;
 
-static void _puts(char* s) __init;
-
 /***
  
     === OS Entry Point ===
@@ -35,7 +33,7 @@ static void _puts(char* s) __init;
 
 void __init __attribute__((__noreturn__)) start_kernel(void)
 {
-    _puts("start_kernel\n");
+    printk("start_kernel big printing\n");
 
     char* cmdline;
     setup(&cmdline);
@@ -73,10 +71,10 @@ static void __init parse_bootinfo(const struct bi_record *record)
                 num_memory++;
             } else
             {
-                /* warn("%s: too many memory chunks\n", __func__); */
+                printk("%s: too many memory chunks\n", __func__);
             }
         default:
-            /* warn("%s: unknown tag 0x%04x ignored\n", __func__); */
+            printk("%s: unknown tag 0x%04x ignored\n", __func__);
         }
 
         record = (struct bi_record*)((unsigned long)record + size);
@@ -87,29 +85,4 @@ static void __init setup(char **cmdline_p)
 {
     /* The bootinfo is located right after the kernel */
     parse_bootinfo((const struct bi_record*)_end);
-}
-
-static void __init _putchar(unsigned char c)
-{
-    // A little recursion
-    if (c == '\n')
-        _putchar('\r');
-
-    uint8_t status_val;
-    do {
-        status_val = uart->sra;
-    }
-    while (!(status_val & (1 << 2)));
-
-    uart->tba = c;
-    return;
-}
-
-static void __init _puts(char* s)
-{
-    unsigned char c;
-    while ((c = (unsigned char)*s++) != 0) {
-        _putchar(c);
-    }
-    return;
 }

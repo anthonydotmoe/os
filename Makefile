@@ -12,7 +12,7 @@ OBJCOPY := $(CROSS)objcopy
 
 export CC AS LD AR OBJCOPY CROSS
 
-.PHONY: all world headers kernel #libs servers drivers commands image clean
+.PHONY: all world headers kernel libs #servers drivers commands image clean
 
 all: world
 
@@ -28,7 +28,7 @@ libs: headers
 	$(MAKE) -C lib all
 
 # 3. Build kernel
-kernel: #headers libs
+kernel: headers libs
 	$(MAKE) -C kernel all
 
 servers: headers libs
