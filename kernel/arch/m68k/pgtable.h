@@ -1,5 +1,8 @@
 #pragma once
 
+// On Linux, this is CONFIG_RAMBASE
+#define PAGE_OFFSET         0
+
 /*
  * Definitions for MMU descriptors
  */

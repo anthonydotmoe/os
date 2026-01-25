@@ -15,6 +15,7 @@ SRCS_C	:= \
 	printk.c \
 	lib/format.c \
 	arch/m68k/earlycon.c \
+	arch/m68k/mm.c \
 	arch/m68k/setup.c
 
 SRCS_S	:= arch/m68k/head.S

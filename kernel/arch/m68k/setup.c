@@ -7,14 +7,13 @@
 #include "asm/bootinfo.h"
 #include "asm/bootinfo-a68040pc.h"
 #include "kernel/printk.h"
+#include "mm.h"
 
 // filled in by head.S
 unsigned long bi_machtype;
 unsigned long bi_cputype;
 unsigned long bi_fputype;
 unsigned long bi_mmutype;
-extern unsigned long init_mapped_size;
-extern unsigned long availmem;
 
 static struct boot_params params __initdata = { 0 };
 
@@ -34,6 +33,7 @@ void __init arch_early_init(void)
           head.S cachemode_pgtable, cachemode_supervisor
         - ...?
     */
+    mm_init();
 }
 
 static void __init parse_bootinfo(const struct bi_record *record)

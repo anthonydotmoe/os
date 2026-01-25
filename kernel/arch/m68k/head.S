@@ -12,6 +12,7 @@
 	/*  */
 
 .globl kernel_pg_dir
+.globl phys_kernel_start
 .globl availmem
 .globl init_mapped_size
 .globl cachemode_pgtable
@@ -209,11 +210,6 @@ func_define putn,1
 #endif
 .endm
 
-/* -------------------------------------------------------------------------- */
-
-.equ	PAGE_OFFSET,0		/*  On Linux, this is CONFIG_RAMBASE */
-				/*  It determined where the */
-				/*  kernel is mapped in memory */
 
 /* Start of text area ------------------------------------------------------- */
 	.section .head.text
@@ -273,7 +269,7 @@ L(test_nota68040pc):
 		/*  --- Printing should work now */
 
 		/*  Compute physical kernel start */
-		lea	L(phys_kernel_start)(pc),a0
+		lea	phys_kernel_start(pc),a0
 		lea	_stext(pc),a1
 		sub.l	#_stext,a1
 		add.l	#PAGE_OFFSET,a1
@@ -325,7 +321,7 @@ L(mmu_init):
 		move.l	d1,(a0)
 
 		/*  create mapping for kernel code & data */
-		mmu_map	#PAGE_OFFSET,L(phys_kernel_start)(pc),d1,cachemode_supervisor(pc)
+		mmu_map	#PAGE_OFFSET,phys_kernel_start(pc),d1,cachemode_supervisor(pc)
 
 		/*  Map the DUART with transparent translation */
 		mmu_map_tt	#1,L(duartbase)(pc),#0x10000000,#_PAGE_NOCACHE_S
@@ -345,7 +341,7 @@ L(mmu_fixup):
 #endif
 		/*  first fix the page at the start of the kernel, that */
 		/*  contains also kernel_pg_dir */
-		move.l	L(phys_kernel_start)(pc),d0
+		move.l	phys_kernel_start(pc),d0
 		sub.l	#PAGE_OFFSET,d0
 		lea	_stext(pc),a0
 		sub.l	d0,a0
@@ -817,7 +813,7 @@ func_start	mmu_engage,d0-d2/a0-a3
 		mmu_temp_map	a0,a1
 3:
 		move.l	L(memory_start)(pc),a3
-		move.l	L(phys_kernel_start)(pc),d2
+		move.l	phys_kernel_start(pc),d2
 
 		/* Engage the 040 MMU */
 		//mmu_print a3
@@ -1259,6 +1255,8 @@ L(mmu_print_tuple_exit):
 
 init_mapped_size:
 		.long	0	/*  */
+phys_kernel_start:
+		.long	0	/*  determined physical load address */
 
 L(mmu_print_data):
 		.long	0	/*  valid flag */
@@ -1271,8 +1269,6 @@ L(mmu_ptr_table_alloc_cursor):
 		.long	0	/*  */
 L(mmu_num_pointer_tables):
 		.long	0	/*  */
-L(phys_kernel_start):
-		.long	0	/*  determined physical load address */
 L(kernel_end):
 		.long	0	/*   */
 L(memory_start):
