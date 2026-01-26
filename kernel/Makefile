@@ -17,9 +17,12 @@ SRCS_C	:= \
 	lib/format.c \
 	arch/m68k/earlycon.c \
 	arch/m68k/mm.c \
-	arch/m68k/setup.c
+	arch/m68k/setup.c \
+	arch/m68k/traps.c
 
-SRCS_S	:= arch/m68k/head.S
+SRCS_S	:= \
+	arch/m68k/head.S \
+	arch/m68k/entry.S
 
 OBJS := $(SRCS_C:%.c=$(KOUT)/%.o) $(SRCS_S:%.S=$(KOUT)/%.o)
 DEPS := $(OBJS:.o=.d)
