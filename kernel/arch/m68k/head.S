@@ -3,6 +3,8 @@
 #include "asm/bootinfo.h"
 #include "asm/bootinfo-a68040pc.h"
 
+#define DEBUG
+
 /*
  *  Startup code
  * --------------------------------------------------------------------------

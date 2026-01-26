@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "kernel/early_alloc.h"
+#include "kernel/mm.h"
 
 // TODO: Tune this with more thought
 #define MEM_CAP 32
@@ -53,6 +54,7 @@ static inline phys_addr_t align_up(phys_addr_t x, phys_addr_t align)
     return (x + (align - 1)) & ~(align - 1);
 }
 
+/*
 static inline phys_addr_t align_down(phys_addr_t x, phys_addr_t align)
 {
     if (align == 0) align = 1;
@@ -65,6 +67,7 @@ static inline bool ranges_overlap_or_adjacent(phys_addr_t a0, phys_addr_t a1,
     // Treat adjacency as mergeable: [a0,a1) touches [b0,b1) if a1 == b0.
     return !(a1 < b0 || b1 < a0);
 }
+*/
 
 // Because these are half-open intervals, overlap/adjacency condition is:
 // prev_end >= cur_base
@@ -106,11 +109,17 @@ static void region_list_insert_merge(region_list_t *l, phys_addr_t base, phys_ad
         uint32_t p = i - 1;
         phys_addr_t p_base = l->r[p].base;
         phys_addr_t p_end;
-        (void)add_overflow_phys(p_base, l->r[p].size, &p_end);
+        if (add_overflow_phys(p_base, l->r[p].size, &p_end))
+        {
+            __builtin_trap();
+        }
 
         phys_addr_t c_base = l->r[i].base;
         phys_addr_t c_end;
-        (void)add_overflow_phys(c_base, l->r[i].size, &c_end);
+        if (add_overflow_phys(c_base, l->r[i].size, &c_end))
+        {
+            __builtin_trap();
+        }
 
         if (mergeable(p_base, p_end, c_base, c_end)) {
             // Merge current into previous
@@ -291,7 +300,16 @@ static bool find_free_range_bottom_up(phys_addr_t size, phys_addr_t align,
 #ifdef DEBUG
 #include "kernel/printk.h"
 
-void ea_print(void)
+static inline void ea_print_list(region_list_t *l)
+{
+    for (uint32_t i = 0; i < l->nr; i++)
+    {
+        phys_addr_t end = l->r[i].base + l->r[i].size;
+        LOG("  [%.8lx , %.8lx)\n", l->r[i].base, end);
+    }
+}
+
+static void ea_print(void)
 {
     region_list_t *l;
 
@@ -303,17 +321,11 @@ void ea_print(void)
 
     LOG("Available:\n");
     l = &state.memory;
-    for (int i = 0; i < l->nr; i++) {
-        phys_addr_t end = l->r[i].base + (l->r[i].size - 1);
-        LOG("  %.8lx - %.8lx\n", l->r[i].base, end);
-    }
+    ea_print_list(l);
 
     LOG("Reserved:\n");
     l = &state.reserved;
-    for (int i = 0; i < l->nr; i++) {
-        phys_addr_t end = l->r[i].base + (l->r[i].size - 1);
-        LOG("  %.8lx - %.8lx\n", l->r[i].base, end);
-    }
+    ea_print_list(l);
 
     kputchar('\n');
 }

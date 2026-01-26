@@ -6,7 +6,13 @@ SYSROOT  := $(O)/sysroot
 LIBDIR   := $(SYSROOT)/lib
 LIBS     := $(LIBDIR)/libprintf.a
 CPPFLAGS += -Iinclude -I$(SYSROOT)/include
-CFLAGS   += -m68040 -g -ffreestanding -fno-builtin -Wall
+
+# Common cc/as flags
+K_FLAGS   = -m68040 -g -ffreestanding -fno-builtin \
+            -std=gnu23 -msoft-float -Os \
+            -Wall -Wextra -Werror
+CFLAGS   += $(K_FLAGS) -Wpedantic
+ASFLAGS  += $(K_FLAGS)
 ASFLAGS  += -Wa,-m68040 -Wa,--register-prefix-optional
 LDFLAGS  += -T link.ld -Map=$(MAPOUT) --print-memory-usage --no-warn-rwx-segments
 
@@ -27,6 +33,8 @@ SRCS_S	:= \
 OBJS := $(SRCS_C:%.c=$(KOUT)/%.o) $(SRCS_S:%.S=$(KOUT)/%.o)
 DEPS := $(OBJS:.o=.d)
 
+.PHONY: all clean
+
 all: $(KOUT)/kernel.elf
 
 $(KOUT)/kernel.elf: $(OBJS) $(LIBS)
@@ -38,7 +46,7 @@ $(KOUT)/%.o: %.c
 
 $(KOUT)/%.o: %.S
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(ASFLAGS) -MMD -MP -c -o $@ $<
+	$(CC) $(CPPFLAGS) $(ASFLAGS) -MMD -MP -c -o $@ $<
 
 -include $(DEPS)
 

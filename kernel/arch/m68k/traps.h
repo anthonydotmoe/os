@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#include "kernel/mm.h"
+
 typedef struct __attribute__((packed)) {
     uint16_t sr;
     uint32_t pc;
@@ -59,34 +61,35 @@ static inline uint16_t exc_vector(const exc_frame_header_t *h)
     return (h->fmtvec & 0x0FFF) >> 2;
 }
 
-static inline const exc_fmt2_t *exc_as_fmt2(const exc_frame_header_t *h)
+static inline exc_fmt2_t *exc_as_fmt2(const exc_frame_header_t *h)
 {
-    return (const exc_fmt2_t *)h->tail;
+    return (exc_fmt2_t *)h->tail;
 }
 
-static inline const exc_fmt3_t *exc_as_fmt3(const exc_frame_header_t *h)
+static inline exc_fmt3_t *exc_as_fmt3(const exc_frame_header_t *h)
 {
-    return (const exc_fmt3_t *)h->tail;
+    return (exc_fmt3_t *)h->tail;
 }
 
-static inline const exc_fmt4_t *exc_as_fmt4(const exc_frame_header_t *h)
+static inline exc_fmt4_t *exc_as_fmt4(const exc_frame_header_t *h)
 {
-    return (const exc_fmt4_t *)h->tail;
+    return (exc_fmt4_t *)h->tail;
 }
 
-static inline const exc_fmt7_t *exc_as_fmt7(const exc_frame_header_t *h)
+static inline exc_fmt7_t *exc_as_fmt7(const exc_frame_header_t *h)
 {
-    return (const exc_fmt7_t *)h->tail;
+    return (exc_fmt7_t *)h->tail;
 }
 
 static inline size_t exc_frame_size_types(uint8_t fmt)
 {
     switch (fmt) {
-        case 0: return 8;
         case 2: return 8 + 4;
         case 3: return 8 + 4;
         case 4: return 8 + 2 + 4;
         case 7: return 60; // "30-word" stack frame
+
+        default: return 8; // Usually it's a "normal" 4-word stack frame
     }
 }
 

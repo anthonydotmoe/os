@@ -40,7 +40,7 @@ void __init arch_early_init(void)
     // Set up early alloc
     // Hack: boot_params() here to not be dependent on when the kernel calls it
     const struct boot_params* p = boot_params();
-    for (int i = 0; i < p->nranges; i++) {
+    for (unsigned int i = 0; i < p->nranges; i++) {
         LOG("Adding memory %.8x size: %.8x\n", p->ranges[i].addr, p->ranges[i].size);
         ea_add_memory(p->ranges[i].addr, p->ranges[i].size);
         kputchar('\n');
@@ -74,9 +74,6 @@ void __init arch_early_init(void)
     // space+size = kernel stack (PAGESIZE - 1KiB)
     phys_addr_t evt = ea_alloc(4096, 4096, 0x00000000, 0xFFFFFFFF);
     traps_init(evt);
-
-    virt_addr_t ksp = phys_to_virt(evt + 4096);
-    virt_addr_t old = _stext;
 
 
     mm_init();
