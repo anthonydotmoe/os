@@ -6,8 +6,12 @@
 #include "arch/boot.h"
 #include "asm/bootinfo.h"
 #include "asm/bootinfo-a68040pc.h"
+#include "kernel/early_alloc.h"
 #include "kernel/printk.h"
+
+#include "head.h"
 #include "mm.h"
+#include "traps.h"
 
 // filled in by head.S
 unsigned long bi_machtype;
@@ -33,6 +37,48 @@ void __init arch_early_init(void)
           head.S cachemode_pgtable, cachemode_supervisor
         - ...?
     */
+    // Set up early alloc
+    // Hack: boot_params() here to not be dependent on when the kernel calls it
+    const struct boot_params* p = boot_params();
+    for (int i = 0; i < p->nranges; i++) {
+        LOG("Adding memory %.8x size: %.8x\n", p->ranges[i].addr, p->ranges[i].size);
+        ea_add_memory(p->ranges[i].addr, p->ranges[i].size);
+        kputchar('\n');
+    }
+
+    mm_init_offset();
+
+    // Reserve kernel memory regions
+    /*
+    Here's what I'm thinking:
+    1. Reserve [virt_to_phys(_stext) , availmem)
+    1. Allocate a new stack, switch to it
+        - Now [0, _stext) is free
+    1. Allocate room for kernel page tables
+    1. Re-do the initial mapping in the new space
+    1. Switch over to the new mappings
+        - Now [__init_end , availmem) can be freed (the old mappings were there)
+    1. Whenever the kernel sets up the real allocator, [__init_start,__init_end)
+       can be freed as well.
+    */
+
+    // TODO: I'm not sure if hard-coding `0` here is perfect, but the first
+    // 0x1000 is our stack now, so it needs to be reserved.
+    phys_addr_t base = virt_to_phys(0);
+    phys_addr_t size = (phys_addr_t)availmem - base;
+    LOG("Reserving memory at %.8x size: %.8x\n", base, size);
+    ea_reserve(base, size);
+
+    // Allocate 1 page of space for a kernel stack & vector table:
+    // space+0    = EVT (1KiB)
+    // space+size = kernel stack (PAGESIZE - 1KiB)
+    phys_addr_t evt = ea_alloc(4096, 4096, 0x00000000, 0xFFFFFFFF);
+    traps_init(evt);
+
+    virt_addr_t ksp = phys_to_virt(evt + 4096);
+    virt_addr_t old = _stext;
+
+
     mm_init();
 }
 

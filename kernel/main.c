@@ -31,8 +31,12 @@ void __init __attribute__((__noreturn__)) start_kernel(void)
     format_bytes_iec_1dp(params->ranges[0].size, sizbuf, sizeof(sizbuf) - 1);
     LOG("Got %s memchunk at 0x%08lx\n", sizbuf, params->ranges[0].addr);
 
+    asm volatile ("trap #0" : : : "memory");
+
     //arch_halt();
-    while (1) { /* nothing */ }
+    while (1) {
+        asm volatile ("stop #0x2700" : : : "cc");
+    }
 
     __builtin_unreachable();
 }
