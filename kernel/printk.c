@@ -12,6 +12,12 @@ static void printk_putchar(char c, void* arg)
     earlycon_putc((unsigned char)c);
 }
 
+int kputchar(int ch)
+{
+    earlycon_putc((unsigned char)ch);
+    return (int)(unsigned char)ch;
+}
+
 int printk(const char *fmt, ...)
 {
     va_list va;

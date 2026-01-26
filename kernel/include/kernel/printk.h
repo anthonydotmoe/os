@@ -4,6 +4,7 @@
 #include <stddef.h>
 
 int printk(const char *fmt, ...);
+int kputchar(int ch);
 
 // Provided by libprintf
 #define snprintk  snprintf_
