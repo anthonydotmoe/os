@@ -11,7 +11,7 @@
 
 #include "head.h"
 #include "mm.h"
-#include "traps.h"
+#include "exception.h"
 
 // filled in by head.S
 unsigned long bi_machtype;

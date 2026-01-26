@@ -24,7 +24,7 @@ SRCS_C	:= \
 	arch/m68k/earlycon.c \
 	arch/m68k/mm.c \
 	arch/m68k/setup.c \
-	arch/m68k/traps.c
+	arch/m68k/exception.c
 
 SRCS_S	:= \
 	arch/m68k/head.S \
