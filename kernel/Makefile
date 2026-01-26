@@ -12,6 +12,7 @@ LDFLAGS  += -T link.ld -Map=$(MAPOUT) --print-memory-usage --no-warn-rwx-segment
 
 SRCS_C	:= \
 	main.c \
+	early_alloc.c \
 	printk.c \
 	lib/format.c \
 	arch/m68k/earlycon.c \
