@@ -12,12 +12,20 @@ OBJCOPY := $(CROSS)objcopy
 
 export CC AS LD AR OBJCOPY CROSS
 
-.PHONY: all world headers kernel libs #servers drivers commands image clean
+.PHONY: all world world_build compdb headers kernel libs #servers drivers commands image clean
 
 all: world
 
-world: headers kernel
+world: compdb
 	@:
+
+# The real build (no Bear)
+world_build: headers kernel
+	@:
+
+compdb:
+	@mkdir -p "$(O)"
+	bear --output "$(O)/compile_commands.json" -- $(MAKE) world_build
 
 # 1. stage headers into $(O)/sysroot/include
 headers:
