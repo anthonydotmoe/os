@@ -1,24 +1,17 @@
-O ?= ../out
-SYSROOT := $(O)/sysroot
-LIBDIR  := $(SYSROOT)/lib
+TOP := $(abspath ..)
+include $(TOP)/mk/common.mk
 
-# List libraries
-LIBS := printf
+SUBDIRS := printf
 
-.PHONY: all install clean $(LIBS)
+.PHONY: all install clean $(SUBDIRS)
 
 all: install
 
-install: $(LIBDIR) $(LIBS)
+install: $(SUBDIRS)
 	@:
 
-$(LIBDIR):
-	@mkdir -p $@
-
-# Each subdir should implement `install`
-$(LIBS):
-	$(MAKE) -C $@ install
+$(SUBDIRS):
+	$(MAKE) -C $@ install TOP=$(TOP) O=$(O)
 
 clean:
-	for d in $(LIBS); do $(MAKE) -C $$d clean; done
-	rm -rf $(LIBDIR)
+	for d in $(LIBS); do $(MAKE) -C $$d clean TOP=$(TOP) O=$(O); done
