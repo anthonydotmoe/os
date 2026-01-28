@@ -33,8 +33,6 @@ void __init arch_early_init(void)
     /*
         TODO: Do initialization things
         - install vector table (VBR)
-        - configure caching policy from
-          head.S cachemode_pgtable, cachemode_supervisor
         - ...?
     */
     // Set up early alloc

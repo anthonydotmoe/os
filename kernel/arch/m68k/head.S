@@ -17,8 +17,6 @@
 .globl phys_kernel_start
 .globl availmem
 .globl init_mapped_size
-.globl cachemode_pgtable
-.globl cachemode_supervisor
 
 /* Translation control register */
 TC_ENABLE = 0x8000
@@ -284,21 +282,6 @@ L(test_nota68040pc):
 		dputn	a1
 		dputc	'\n'
 
-L(configure_cachemodes):
-
-		/*  Determine the cache mode for pages holding MMU tables */
-		/*  and for supervisor mode, unused for '020 and '030 */
-		clr.l	d0
-		clr.l	d1
-		move.w	#_PAGE_CACHE,d0
-		move.w	#_PAGE_CACHEW,d1
-
-		/*  save cache mode for supervisor mode and page tables */
-		lea	cachemode_supervisor(pc),a0
-		move.l	d0,(a0)
-		lea	cachemode_pgtable(pc),a0
-		move.l	d1,(a0)
-
 		/*  Raise interrupt level */
 		move.w	#0x2700,sr
 
@@ -323,7 +306,7 @@ L(mmu_init):
 		move.l	d1,(a0)
 
 		/*  create mapping for kernel code & data */
-		mmu_map	#PAGE_OFFSET,phys_kernel_start(pc),d1,cachemode_supervisor(pc)
+		mmu_map	#PAGE_OFFSET,phys_kernel_start(pc),d1,#_PAGE_CACHE
 
 		/*  Map the DUART with transparent translation */
 		mmu_map_tt	#1,L(duartbase)(pc),#0x10000000,#_PAGE_NOCACHE_S
@@ -680,7 +663,7 @@ func_start	mmu_fixup_page_mmu_cache,d0/a0
 
 		move.l	(a0),d0
 		andi.l	#_CACHEMASK040,d0
-		or.l	cachemode_pgtable(pc),d0
+		or.l	#_PAGE_CACHEW,d0
 		move.l	d0,(a0)
 
 		dputc	'\n'
@@ -1289,7 +1272,3 @@ L(duartbase):
 
 availmem:
 		.long	0	/*  (global) available memory */
-cachemode_pgtable:
-		.long	0	/*  (global) cache mode for pagetable pages */
-cachemode_supervisor:
-		.long	0	/*  (global) cache mode for supervisor pages */
