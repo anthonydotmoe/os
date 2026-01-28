@@ -3,8 +3,6 @@
 #include "asm/bootinfo.h"
 #include "asm/bootinfo-a68040pc.h"
 
-#define DEBUG
-
 /*
  *  Startup code
  * --------------------------------------------------------------------------
@@ -366,9 +364,10 @@ L(enable_caches):
 		nop
 
 L(begin_init):
-		/* lea	init_task,a2 */
-		/* lea	init_thread_union+THREAD_SIZE,sp */
+		// We're done with the temporary stack, move to the real one.
+		lea	L(kernel_stack_top),sp
 
+		// Jump to kernel startup!
 		jmp	start_kernel
 
 L(die):		stop	#0x2000
@@ -1272,3 +1271,11 @@ L(duartbase):
 
 availmem:
 		.long	0	/*  (global) available memory */
+	
+/*  .bss section for kernel stack */
+	.section	.bss
+			.balign	4
+
+L(kernel_stack_bottom):
+		.space	4096
+L(kernel_stack_top):

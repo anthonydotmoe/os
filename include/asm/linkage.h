@@ -1,6 +1,6 @@
 #pragma once
 
-#include "stringify.h"
+#include <asm/stringify.h>
 
 #ifndef CONFIG_FUNCTION_ALIGNMENT
 #define CONFIG_FUNCTION_ALIGNMENT 8

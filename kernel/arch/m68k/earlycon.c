@@ -1,6 +1,5 @@
 #include <stdint.h>
 
-#include "asm/init.h"
 #include "uart68681.h"
 #include "arch/earlycon.h"
 

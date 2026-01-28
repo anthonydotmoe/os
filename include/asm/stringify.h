@@ -5,7 +5,11 @@
  * converts to "bar".
  */
 
+#ifdef __ASSEMBLER__
+
 #define __stringify_1(x...)	#x
 #define __stringify(x...)	__stringify_1(x)
 
 #define FILE_LINE	__FILE__ ":" __stringify(__LINE__)
+
+#endif /* __ASSEMBLER__ */

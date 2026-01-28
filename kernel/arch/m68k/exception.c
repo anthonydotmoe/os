@@ -1,14 +1,13 @@
 /*
-
 This file contains a simple exception handler. Exceptions in user processes
 are converted to signals. Exceptions in a kernel task cause a panic.
-
 */
 
 #include <stdbool.h>
 #include <stdint.h>
 #include "kernel/printk.h"
 #include "exception.h"
+#include "kernel/mm.h"
 
 typedef enum {
     K_SIG_NONE = 0,
@@ -234,7 +233,7 @@ static void deliver_exception_to_user(uint8_t vec, saved_regs_t *r, exc_frame_he
     // TODO:
     // signal_or_kill_current(info->sig ? info->sig : K_SIGSEGV, r, f);
 
-    while (1) asm volatile ("stop #0x2700": : : "cc");
+    while (1) __asm__ __volatile__ ("stop #0x2700": : : "cc");
 }
 
 static void panic_kernel_exception(uint8_t vec, saved_regs_t *r, exc_frame_header_t *f)
@@ -256,23 +255,7 @@ static void panic_kernel_exception(uint8_t vec, saved_regs_t *r, exc_frame_heade
         print_access_fault(exc_as_fmt7(f));
     }
 
-    while (1) asm volatile ("stop #0x2700" : : : "cc");
-}
-
-static void syscall_dispatch(saved_regs_t *r, exc_frame_header_t *f)
-{
-    // Convention: syscall number in D0, args in ...
-    (void)f;
-
-    uint32_t nr = r->d0;
-    switch (nr) {
-        case 0:     // e.g. write(char*, len)
-            r->d0 = (uint32_t)-1;
-            break;
-        default:
-            r->d0 = (uint32_t)-1;
-            break;
-    }
+    while (1) __asm__ __volatile__ ("stop #0x2700" : : : "cc");
 }
 
 void ExceptionHandler_c(saved_regs_t *r)
@@ -282,10 +265,10 @@ void ExceptionHandler_c(saved_regs_t *r)
 
     // Special case: syscall vector
     if (vec == SYSCALL_VECTOR) {
-        if (exc_from_user(f)) {
-            syscall_dispatch(r, f);
+//        if (exc_from_user(f)) {
+//            syscall_dispatch(r, f);
             return; // assembly stuf will restore regs and RTE
-        }
+//        }
         // syscall trap from supervisor is a kernel bug
         panic_kernel_exception(vec, r, f);
     }
@@ -305,10 +288,12 @@ void ExceptionHandler_c(saved_regs_t *r)
     panic_kernel_exception(vec, r, f);
 }
 
+// .bss section EVT, aligned for 68040
+static uint32_t evt_space[256] __attribute__((used, aligned(8)));
 extern char ExceptionHandler[];
-void traps_init(phys_addr_t evt_base)
+void traps_init(void)
 {
-    virt_addr_t evt = phys_to_virt(evt_base);
+    virt_addr_t evt = (virt_addr_t)(uintptr_t)evt_space;
 
     // Get the logical address of the exception handler
     uint32_t handler = (uint32_t)(uintptr_t)(ExceptionHandler);
@@ -322,6 +307,6 @@ void traps_init(phys_addr_t evt_base)
     }
 
     // Set the VBR to the new table
-    asm volatile (" movec %0,%/vbr" : : "r"(evt));
+    __asm__ __volatile__ (" movec %0,%/vbr" : : "r"(evt));
     LOG("Done.\n");
 }
