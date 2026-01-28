@@ -11,7 +11,7 @@ typedef struct __attribute__((packed)) {
 } exc_frame_header_t;
 
 #define FMTVEC(format, vector_offset) \
-    (unsigned short)((((format) & 0xF) << 12) | ((vector_offset) & 0x0FFF))
+    (unsigned short)((((format) & 0xF) << 12) | ((vector_offset << 2) & 0x0FFF))
 
 typedef struct __attribute__((packed)) {
     uint32_t addr;
