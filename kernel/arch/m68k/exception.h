@@ -3,8 +3,6 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#include "kernel/mm.h"
-
 typedef struct __attribute__((packed)) {
     uint16_t sr;
     uint32_t pc;
@@ -93,5 +91,4 @@ static inline size_t exc_frame_size_types(uint8_t fmt)
     }
 }
 
-// evt_base: Where to place the exception vector table
-void traps_init(virt_addr_t evt_base);
+void traps_init(void);
