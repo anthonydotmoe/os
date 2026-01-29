@@ -1,8 +1,6 @@
 #pragma once
-#include <stdint.h>
 
-typedef uint32_t phys_addr_t;
-typedef uint32_t virt_addr_t;
+#include <form_os/type.h>
 
-phys_addr_t virt_to_phys(virt_addr_t va);
-virt_addr_t phys_to_virt(phys_addr_t pa);
+phys_bytes virt_to_phys(virt_bytes va);
+virt_bytes phys_to_virt(phys_bytes pa);

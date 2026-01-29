@@ -1,17 +1,19 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#include <form_os/type.h>
+
 #include "asm/init.h"
 #include "asm/sections.h"
 #include "arch/boot.h"
 #include "asm/bootinfo.h"
-#include "asm/bootinfo-a68040pc.h"
-#include "kernel/early_alloc.h"
+#include "kernel/mm.h"
 #include "kernel/printk.h"
 
 #include "head.h"
 #include "mm.h"
 #include "exception.h"
+#include "pgtable.h"
 
 // filled in by head.S
 unsigned long bi_machtype;
@@ -19,54 +21,54 @@ unsigned long bi_cputype;
 unsigned long bi_fputype;
 unsigned long bi_mmutype;
 
+static bool init_params_inited __initdata = false;
 static struct boot_params params __initdata = { 0 };
 
 /*
     head.S has arranged the following:
-    - Stack pointer is set to _stext (1KiB total)
     - MMU is enabled and we are mapped in at vaddrs
     - The first `init_mapped_size` bytes are available to us
     - `availmem` has been set to first free physical page address
 */
 void __init arch_early_init(void)
 {
-    // Set up early alloc
+    // Set up exception vector table
+    traps_init();
+
+    /* Seed the physical memory manager */
     // Hack: boot_params() here to not be dependent on when the kernel calls it
     const struct boot_params* p = boot_params();
-    for (unsigned int i = 0; i < p->nranges; i++) {
-        LOG("Adding memory %.8x size: %.8x\n", p->ranges[i].addr, p->ranges[i].size);
-        ea_add_memory(p->ranges[i].addr, p->ranges[i].size);
-        kputchar('\n');
+    if (p->nranges == 0)
+    {
+        LOG_E("No memory ranges??\n");
+        __builtin_trap();
     }
 
     // Set up the `phys_to_virt`/`virt_to_phys` functions
     mm_init_offset();
 
-    /* Seed the early allocator with the memory regions we know about */
-    // 
-    // Reserve kernel memory regions
-    /*
-    Here's what I'm thinking:
-    1. Reserve [virt_to_phys(_stext) , availmem)
-    1. Allocate room for kernel page tables
-    1. Re-do the initial mapping in the new space
-    1. Switch over to the new mappings
-        - Now [__init_end , availmem) can be freed (the old mappings were there)
-    1. Whenever the kernel sets up the real allocator, [__init_start,__init_end)
-       can be freed as well.
-    */
+    // Give PMM the RAM space
+    pmm_init(p->ranges[0].addr, p->ranges[0].size);
 
-    // TODO: I need to somehow not allow allocations in the first page for now.
-    // But after the page allocator is up, it is okay to do that as long as they
-    // aren't mapped to the first page [0x0 - 0x1000)
-    phys_addr_t base = virt_to_phys(0);
-    phys_addr_t size = (phys_addr_t)availmem - base;
-    LOG("Reserving memory at %.8x size: %.8x\n", base, size);
-    ea_reserve(base, size);
+    // Reserve kernel image + early boot allocations up to availmem
+    phys_bytes kbase = virt_to_phys((virt_bytes)(uintptr_t)_start_kernel_image);
+    phys_bytes kend  = (phys_bytes)availmem;
+    pmm_reserve_range(kbase, kend - kbase);
 
-    traps_init();
+    // Build a new kernel page-table tree using PMM (not the boot bump area)
+    // `vm_init` must switch SRP to the new tree before returning.
+    phys_bytes p_stext = virt_to_phys((virt_bytes)(uintptr_t)_start_kernel_image);
+    phys_bytes p_end   = virt_to_phys((virt_bytes)(uintptr_t)_start_kernel_image + (1024 * 1024));
+    virt_bytes v_stext = (virt_bytes)(uintptr_t)_start_kernel_image;
+    vm_init(p_stext, p_end - p_stext, v_stext);
 
-    mm_init();
+    // Now that we're not using the boot bump-allocated PT pages anymore,
+    // free the bump region.
+    phys_bytes old_pt_base = virt_to_phys((virt_bytes)(uintptr_t)_end);
+    phys_bytes old_pt_end  = (phys_bytes)availmem;
+    if (old_pt_end > old_pt_base) {
+        pmm_release_range(old_pt_base, old_pt_end - old_pt_base);
+    }
 }
 
 static void __init parse_bootinfo(const struct bi_record *record)
@@ -113,8 +115,17 @@ static void __init parse_bootinfo(const struct bi_record *record)
     }
 }
 
-const struct boot_params *boot_params(void)
+static void __init init_boot_params(void)
 {
     parse_bootinfo((const struct bi_record*)_end);
+    init_params_inited = true;
+}
+
+
+const struct boot_params *boot_params(void)
+{
+    if (init_params_inited != true) {
+        init_boot_params();
+    }
     return &params;
 }

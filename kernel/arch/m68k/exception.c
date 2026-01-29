@@ -5,9 +5,11 @@ are converted to signals. Exceptions in a kernel task cause a panic.
 
 #include <stdbool.h>
 #include <stdint.h>
+
+#include <form_os/type.h>
+
 #include "kernel/printk.h"
 #include "exception.h"
-#include "kernel/mm.h"
 
 typedef enum {
     K_SIG_NONE = 0,
@@ -293,7 +295,7 @@ static uint32_t evt_space[256] __attribute__((used, aligned(8)));
 extern char ExceptionHandler[];
 void traps_init(void)
 {
-    virt_addr_t evt = (virt_addr_t)(uintptr_t)evt_space;
+    virt_bytes evt = (virt_bytes)(uintptr_t)evt_space;
 
     // Get the logical address of the exception handler
     uint32_t handler = (uint32_t)(uintptr_t)(ExceptionHandler);
