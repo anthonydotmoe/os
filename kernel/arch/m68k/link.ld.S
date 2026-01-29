@@ -1,6 +1,6 @@
 PHDRS
 {
-    text PT_LOAD FILEHDR PHDRS FLAGS (7);
+    text PT_LOAD FLAGS (7);
     data PT_LOAD FLAGS (7);
 }
 
@@ -8,15 +8,14 @@ PHDRS
 
 OUTPUT_FORMAT("elf32-m68k", "elf32-m68k", "elf32-m68k")
 OUTPUT_ARCH(m68k)
-ENTRY(_start)
+ENTRY(__start)
 
 SECTIONS
 {
-    . = 0x1000 + KERNEL_VIRT_BASE;
+    . = KERNEL_VIRT_BASE;
     _start_kernel_image = .;
     _text = .;
     .text : {
-        KEEP(*(.head.text))
         . = ALIGN(8);
         *(.text .text.*)
         . = ALIGN(PAGE_SIZE);

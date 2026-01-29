@@ -172,7 +172,7 @@ func_define	mmu_engage
 func_define	mmu_get_root_table_entry,1
 func_define	mmu_get_ptr_table_entry,2
 func_define	mmu_get_page_table_entry,2
-func_define	mmu_print
+func_define	mmu_print,1
 func_define	get_new_page
 
 .macro	mmu_map_eq	arg1,arg2,arg3
@@ -222,32 +222,12 @@ func_define putn,1
 .endm
 
 
-/* Start of text area ------------------------------------------------------- */
-	.section .head.text
-SYM_CODE_START(_stext)
-		bra	__start	/*  Jump over first page area */
-
-		/*  */
-		/*  */
-		/*  There's room here for activities */
-		/*  */
-		/*  */
-
-.equ	kernel_pg_dir,_stext
-.equ	.,_stext+PAGE_SIZE	/*  PC = _stext + PAGE_SIZE */
-
-SYM_CODE_END(_stext)
-
-SYM_CODE_START(_start)
-		bra	__start
-SYM_CODE_END(_start)
-
 /* Init text area ----------------------------------------------------------- */
 	.section .init.text
 
 /* -------------------------------------------------------------------------------------------------------- */
 SYM_CODE_START(__start)
-		lea	_stext(pc),sp	/*  Setup initial stack pointer */
+		lea	L(kernel_stack_top)(pc),sp	/*  Setup initial stack pointer */
 
 		/*  Get the CPU & machine type */
 		get_bi_record	BI_MACHTYPE
@@ -281,8 +261,8 @@ L(test_nota68040pc):
 
 		/*  Compute physical kernel start */
 		lea	phys_kernel_start(pc),a0
-		lea	_stext(pc),a1
-		sub.l	#_stext,a1
+		lea	_start_kernel_image(pc),a1
+		sub.l	#_start_kernel_image,a1
 		add.l	#KERNEL_VIRT_BASE,a1
 		move.l	a1,(a0)
 
@@ -327,22 +307,18 @@ L(mmu_init_done):
 
 		dputs	"\nMMU Setup is complete\n"
 
-#ifdef DEBUG
-		mmu_print L(kernel_pgdir_ptr)(pc)
-#endif
-
 L(mmu_fixup):
 #ifdef MMU_NOCACHE_KERNEL
 		jbra	L(mmu_fixup_done)
 #endif
-		/*  first fix the page at the start of the kernel, that */
-		/*  contains also kernel_pg_dir */
+		/* first, fix the bootstrap MMU table page */
 		move.l	phys_kernel_start(pc),d0
 		sub.l	#KERNEL_VIRT_BASE,d0
-		lea	_stext(pc),a0
+		lea	L(mmu_table_area)(pc),a0
 		sub.l	d0,a0
 		mmu_fixup_page_mmu_cache a0
 
+		/* then, fix each page containing page table entries */
 		move.l	L(kernel_end)(pc),a0
 		sub.l	d0,a0
 		move.l	L(memory_start)(pc),a1
@@ -356,7 +332,7 @@ L(mmu_fixup):
 		bgt	1b
 L(mmu_fixup_done):
 
-		//mmu_print L(kernel_pgdir_ptr)(pc)
+		mmu_print L(kernel_pgdir_ptr)(pc)
 
 L(begin_vm):
 		dputs	"\nEngaging the MMU...\n"
@@ -868,28 +844,27 @@ func_start	mmu_get_root_table_entry,d0/a1
 		lea	L(kernel_end)(pc),a0	/* get kernel_end */
 		move.l	d0,(a0)			/* kernel_end = (same) first free page */
 
-		/* Set up the root table to live at the first page (_stext),
-		 * since the init code in <FILENAME> will expect the kernel page
-		 * table root to be there. The rest of the page is used for
-		 * more pointer tables by mmu_get_ptr_table_entry.
+		/* Set up the root table to live in the page at 
+		 * L(mmu_table_area). This is a temporary area (as it is in
+		 * .init.data), so the kernel will need to rebuild it.
 		 */
-		lea	_stext(pc),a0				// physical addr _stext -> a0
+		lea	L(mmu_table_area)(pc),a0		// physical addr (area) -> a0
 		lea	L(mmu_ptr_table_alloc_cursor)(pc),a1	// pointer table cursor -> a1
-		move.l	a0,(a1)					// *pointer table cursor = _stext
-		add.l	#ROOT_TABLE_SIZE*4,(a1)			// pointer table cursor += sizeof(POINTER_TABLE)
+		move.l	a0,(a1)					// *pointer table cursor = L(mmu_table_area)
+		add.l	#ROOT_TABLE_SIZE*4,(a1)			// pointer table cursor += sizeof(ROOT_TABLE)
 
 		lea	L(mmu_num_pointer_tables)(pc),a1	// a1 <- num_pointer_tables
 		addq.l	#1,(a1)					// num_pointer_tables++
 
 		/*  Clear the entire page  */
-		move.l	a0,a1				// _stext -> a1
+		move.l	a0,a1				// L(mmu_table_area) -> a1
 		move.w	#PAGE_SIZE/4-1,d0		// count = PAGE_SIZE/sizeof(long)-1
 1:
 		clr.l	(a1)+				// do { *root_base = 0L; }
 		dbra	d0,1b				// while (-1 != count--)
 
 		lea	L(kernel_pgdir_ptr)(pc),a1	// kernel root pointer -> a1
-		move.l	a0,(a1)				// *kernel root pointer = _stext
+		move.l	a0,(a1)				// *kernel root pointer = L(mmu_table_area)
 
 		dputs	"  The kernel pagetable root will be located at:"
 		dputn	a0
@@ -1091,8 +1066,8 @@ func_start	mmu_print,a0-a6/d0-d7
 11:		putc	'\n'
 		bra	1b
 #endif /* __GORY_AND_DETAILED */
+L(mmu_print_begin):
 
-		lea	kernel_pg_dir(pc),a5
 		move.l	a5,a0	/*  a0 has the address of the root table ptr */
 		move.l	#0x00000000,a4	/*  logical address */
 		moveq.l	#0,d0
@@ -1276,6 +1251,11 @@ L(temp_mmap_mem):
 		.long	0	/*   */
 L(duartbase):
 		.long	0	/*  68040pc 68681 DUART base address */
+
+/* Bootstrap area for MMU root/pointer tables */
+			.balign	PAGE_SIZE
+L(mmu_table_area):
+.equ	.,L(mmu_table_area)+PAGE_SIZE
 
 /*  .data section */
 /* ------------------------------------------------------------------------------- */
