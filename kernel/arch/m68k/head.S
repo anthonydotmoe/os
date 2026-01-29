@@ -1,7 +1,10 @@
-#include "pgtable.h"
+#include <form_os/config.h>
+
 #include "asm/linkage.h"
 #include "asm/bootinfo.h"
-#include "asm/bootinfo-a68040pc.h"
+#include "asm/bootinfo_a68040pc.h"
+
+#define DEBUG
 
 /*
  *  Startup code
@@ -60,12 +63,22 @@ CC3_CLRE_I	= 0x00000004	/* clear entry in instruction cache (68030) */
 CC3_FREEZE_I	= 0x00000002	/* freeze instruction cache (68030) */
 CC3_ENABLE_I	= 0x00000001	/* enable instruction cache (68030) */
 
-/* Miscellaneous definitions */
-PAGESIZE	= 4096
+/* pgtable.h isn't assembler compatible */
+_PAGE_PRESENT	= 0x001
+_PAGE_TABLE	= 0x002
+_PAGE_ACCESSED	= 0x008
+_PAGE_DIRTY	= 0x010
+_PAGE_GLOBAL	= 0x400
+_PAGE_CACHEW	= 0x000
+_PAGE_CACHE	= 0x020
+_PAGE_NOCACHE_S	= 0x040
+_PAGE_NOCACHE	= 0x060
+_PAGE_SUPER	= 0x080
+_CACHEMASK040	= (~0x060)
 
-ROOT_TABLE_SIZE  = 128	// 128 u32 root-level table descriptors
-PTR_TABLE_SIZE   = 128	// 128 u32 pointer-level table descriptors
-PAGE_TABLE_SIZE  = 64	// 64  u32 page descriptors
+ROOT_TABLE_SIZE = 128
+PTR_TABLE_SIZE  = 128
+PAGE_TABLE_SIZE = 64
 ROOT_INDEX_SHIFT = 25
 PTR_INDEX_SHIFT  = 18
 PAGE_INDEX_SHIFT = 12
@@ -221,7 +234,7 @@ SYM_CODE_START(_stext)
 		/*  */
 
 .equ	kernel_pg_dir,_stext
-.equ	.,_stext+PAGESIZE	/*  PC = _stext + PAGESIZE */
+.equ	.,_stext+PAGE_SIZE	/*  PC = _stext + PAGE_SIZE */
 
 SYM_CODE_END(_stext)
 
@@ -270,7 +283,7 @@ L(test_nota68040pc):
 		lea	phys_kernel_start(pc),a0
 		lea	_stext(pc),a1
 		sub.l	#_stext,a1
-		add.l	#PAGE_OFFSET,a1
+		add.l	#KERNEL_VIRT_BASE,a1
 		move.l	a1,(a0)
 
 		/*  Welcome! and print debug information */
@@ -304,7 +317,7 @@ L(mmu_init):
 		move.l	d1,(a0)
 
 		/*  create mapping for kernel code & data */
-		mmu_map	#PAGE_OFFSET,phys_kernel_start(pc),d1,#_PAGE_CACHE
+		mmu_map	#KERNEL_VIRT_BASE,phys_kernel_start(pc),d1,#_PAGE_CACHE
 
 		/*  Map the DUART with transparent translation */
 		mmu_map_tt	#1,L(duartbase)(pc),#0x10000000,#_PAGE_NOCACHE_S
@@ -315,7 +328,7 @@ L(mmu_init_done):
 		dputs	"\nMMU Setup is complete\n"
 
 #ifdef DEBUG
-		//mmu_print L(kernel_pgdir_ptr)(pc)
+		mmu_print L(kernel_pgdir_ptr)(pc)
 #endif
 
 L(mmu_fixup):
@@ -325,7 +338,7 @@ L(mmu_fixup):
 		/*  first fix the page at the start of the kernel, that */
 		/*  contains also kernel_pg_dir */
 		move.l	phys_kernel_start(pc),d0
-		sub.l	#PAGE_OFFSET,d0
+		sub.l	#KERNEL_VIRT_BASE,d0
 		lea	_stext(pc),a0
 		sub.l	d0,a0
 		mmu_fixup_page_mmu_cache a0
@@ -337,7 +350,7 @@ L(mmu_fixup):
 		bra	2f
 1:
 		mmu_fixup_page_mmu_cache a0
-		add.w	#PAGESIZE,a0
+		add.w	#PAGE_SIZE,a0
 2:
 		cmp.l	a0,a1
 		bgt	1b
@@ -544,7 +557,7 @@ func_start	mmu_map,d0-d4/a0-a4
 
 		/*  Get logical address and round it down to 256KB */
 		move.l	ARG1,d0
-		and.l	#-(PAGESIZE*PAGE_TABLE_SIZE),d0
+		and.l	#-(PAGE_SIZE*PAGE_TABLE_SIZE),d0
 		move.l	d0,a3
 
 		/*  Get the end address */
@@ -554,7 +567,7 @@ func_start	mmu_map,d0-d4/a0-a4
 
 		/*  Get physical address and round it down to 256KB */
 		move.l	ARG2,d0
-		and.l	#-(PAGESIZE*PAGE_TABLE_SIZE),d0
+		and.l	#-(PAGE_SIZE*PAGE_TABLE_SIZE),d0
 		move.l	d0,a2
 
 		/*  Add page attributes to the physical address */
@@ -611,8 +624,8 @@ L(mmu_map_do_map):
 
 		/*  Do the mapping and advance the pointers */
 		move.l	a2,(a0)
-		add.w	#PAGESIZE,a2
-		add.w	#PAGESIZE,a3
+		add.w	#PAGE_SIZE,a2
+		add.w	#PAGE_SIZE,a3
 
 		/*  Ready with mapping? */
 		lea	-1(a3),a0
@@ -750,7 +763,7 @@ func_start	mmu_temp_map,d0-d1/a0-a1
 
 		/*  Insert the address into the page table */
 		move.l	ARG1,d0
-		and.w	#-PAGESIZE,d0
+		and.w	#-PAGE_SIZE,d0
 		or.w	#_PAGE_PRESENT+_PAGE_ACCESSED+_PAGE_DIRTY,d0
 		move.l	d0,(a0)
 		dputs	"   inserted:"
@@ -777,7 +790,7 @@ func_start	mmu_engage,d0-d2/a0-a3
 		lea	L(temp_mmap_mem)(pc),a0
 		move.l	a1,(a0)
 
-		move.w	#PAGESIZE-1,d0
+		move.w	#PAGE_SIZE-1,d0
 2:
 		clr.l	(a1)+
 		dbra	d0,2b
@@ -791,8 +804,8 @@ func_start	mmu_engage,d0-d2/a0-a3
 		/*  Create temporary mappings */
 		mmu_temp_map	a0,a0
 		mmu_temp_map	a0,a1
-		add.w	#PAGESIZE,a0	/*  +1 PAGESIZE */
-		add.w	#PAGESIZE,a1
+		add.w	#PAGE_SIZE,a0	/*  +1 PAGE_SIZE */
+		add.w	#PAGE_SIZE,a1
 		mmu_temp_map	a0,a0
 		mmu_temp_map	a0,a1
 3:
@@ -820,7 +833,7 @@ L(mmu_decisive_moment):
 
 		/* Cleanup */
 						// D2 has start of physical memory
-		sub.l	#PAGE_OFFSET,d2		// Subtract the load offset
+		sub.l	#KERNEL_VIRT_BASE,d2	// Subtract the load offset
 		sub.l	d2,a2			// A2 has old pagedir ptr, adjust to logical
 		move.l	a2,L(kernel_pgdir_ptr)	// Store fixed kernel_pgdir_ptr
 		sub.l	d2,a6			// Fix frame pointer
@@ -842,9 +855,9 @@ func_start	mmu_get_root_table_entry,d0/a1
 		/*  as the bootinfo structure is located directly behind the kernel. */
 		/*  We simply search for the last entry. */
 		get_bi_record	BI_LAST
-		add.w	#PAGESIZE-1,a0	// then find the next page
+		add.w	#PAGE_SIZE-1,a0	// then find the next page
 		move.l	a0,d0
-		and.w	#-PAGESIZE,d0
+		and.w	#-PAGE_SIZE,d0
 
 		dputs	"\n  First free page of memory at:"
 		dputn	d0
@@ -870,7 +883,7 @@ func_start	mmu_get_root_table_entry,d0/a1
 
 		/*  Clear the entire page  */
 		move.l	a0,a1				// _stext -> a1
-		move.w	#PAGESIZE/4-1,d0		// count = PAGESIZE/sizeof(long)-1
+		move.w	#PAGE_SIZE/4-1,d0		// count = PAGE_SIZE/sizeof(long)-1
 1:
 		clr.l	(a1)+				// do { *root_base = 0L; }
 		dbra	d0,1b				// while (-1 != count--)
@@ -941,11 +954,11 @@ func_start	mmu_get_page_table_entry,d0/a1
 
 		/*  align pointer table entry for a page of page tables */
 		move.l	ARG1,d0
-		and.w	#-(PAGESIZE/PAGE_TABLE_SIZE),d0
+		and.w	#-(PAGE_SIZE/PAGE_TABLE_SIZE),d0
 		move.l	d0,a1
 
 		/*  Insert the page tables into the pointer entries */
-		moveq	#PAGESIZE/PAGE_TABLE_SIZE/4-1,d0
+		moveq	#PAGE_SIZE/PAGE_TABLE_SIZE/4-1,d0
 1:
 		move.l	a0,(a1)+
 		lea	PAGE_TABLE_SIZE*4(a0),a0
@@ -968,11 +981,11 @@ func_start	get_new_page,d0/a1
 		/*  allocate the page and adjust L(memory_start) */
 		lea	L(memory_start)(pc),a0
 		move.l	(a0),a1
-		add.l	#PAGESIZE,(a0)
+		add.l	#PAGE_SIZE,(a0)
 
 		/*  clear the new page */
 		move.l	a1,a0
-		move.w	#PAGESIZE/4-1,d0
+		move.w	#PAGE_SIZE/4-1,d0
 1:
 		clr.l	(a1)+
 		dbra	d0,1b
@@ -1086,7 +1099,7 @@ func_start	mmu_print,a0-a6/d0-d7
 40:
 		/*  Increment the logical address and preserve in d5 */
 		move.l	a4,d5
-		addi.l	#PAGESIZE<<13,d5
+		addi.l	#PAGE_SIZE<<13,d5
 		move.l	(a0)+,d6
 		btst	#1,d6
 		bne	41f
@@ -1098,7 +1111,7 @@ func_start	mmu_print,a0-a6/d0-d7
 		move.l	d6,a1
 42:
 		move.l	a4,d5
-		addi.l	#PAGESIZE<<6,d5
+		addi.l	#PAGE_SIZE<<6,d5
 		move.l	(a1)+,d6
 		btst	#1,d6
 		bne	43f
@@ -1110,7 +1123,7 @@ func_start	mmu_print,a0-a6/d0-d7
 		move.l	d6,a2
 44:
 		move.l	a4,d5
-		addi.l	#PAGESIZE,d5
+		addi.l	#PAGE_SIZE,d5
 		move.l	(a2)+,d6
 		btst	#0,d6
 		bne	45f
