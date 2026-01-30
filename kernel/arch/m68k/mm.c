@@ -6,6 +6,7 @@
 #include <form_os/type.h>
 
 #include "kernel/printk.h"
+#include "kernel/format.h"
 #include "kernel/mm.h"
 #include "head.h"
 #include "mm.h"
@@ -310,13 +311,15 @@ static int popcount(uint32_t n) {
 
 void pmm_print_free_mem(void)
 {
+    char sizbuf[16];
     int free_pages = 0;
     for (size_t i = 0; i < NUM_WORDS; i++)
     {
         free_pages += popcount(p_state.page_bitmap[i]);
     }
     uint32_t free = free_pages * PAGE_SIZE;
-    LOG("%d (0x%08lx) bytes free\n", free, free);
+    format_bytes_iec_1dp(free, sizbuf, ARRAY_LEN(sizbuf));
+    LOG("%s (0x%08lx) free\n", sizbuf, free);
     print_bitmap();
 }
 
@@ -353,20 +356,20 @@ static pt_pool_t g_ptpool = {
 // Get a node with free slots, allocate a new page if none are found.
 static inline pt_pool_page_t* pool_get_node(ptblk_t ty)
 {
-    pt_pool_page_t** pp = (ty == PTBLK_256)
+    pt_pool_page_t** headp = (ty == PTBLK_256)
         ? &g_ptpool.free_256
         : &g_ptpool.free_512;
     
-    while (*pp != NULL) {
-        pt_pool_page_t *node = *pp;
-        if (node->ty != ty) {
+    // Scan the list for a pool with free slots
+    for (pt_pool_page_t *n = *headp; n; n = n->next) {
+        if (n->ty != ty) {
             LOG_E("Invalid node type in the %d list!\n", ty);
             __builtin_trap();
         }
-        if (node->free_mask != 0) {
-            return node;
+        // TODO: Maybe move the node we allocate from to the front?
+        if (n->free_mask != 0) {
+            return n;
         }
-        pp = &node->next;
     }
 
     // TODO: backing page stays owned by pool forever.
@@ -383,14 +386,15 @@ static inline pt_pool_page_t* pool_get_node(ptblk_t ty)
         __builtin_trap();
     }
 
+    // Push new pool to the front of the list
     pt_pool_page_t *new = &g_pool_pages[g_ptpool.index++];
     new->pa = pa;
     new->ty = ty;
     new->free_mask = (ty == PTBLK_256)
         ? 0xFFFF
         : 0x00FF;
-    new->next = *pp;
-    *pp = new;
+    new->next = *headp;
+    *headp = new;
     return new;
 }
 
