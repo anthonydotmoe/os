@@ -19,13 +19,13 @@ all: world
 world: compdb
 	@:
 
-# The real build (no Bear)
+# The real build
 world_build: headers kernel
 	@:
 
 compdb:
 	@mkdir -p "$(O)"
-	bear --output "$(O)/compile_commands.json" -- $(MAKE) world_build
+	compiledb -o "$(O)/compile_commands.json" -- $(MAKE) world_build
 
 # 1. stage headers into $(O)/sysroot/include
 headers:
