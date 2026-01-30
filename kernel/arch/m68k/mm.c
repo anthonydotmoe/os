@@ -5,6 +5,8 @@
 #include <form_os/config.h>
 #include <form_os/type.h>
 
+#include "kernel/mm.h"
+#include "arch/mm.h"
 #include "kernel/printk.h"
 #include "kernel/format.h"
 #include "kernel/mm.h"
@@ -519,11 +521,9 @@ static void pt_free_table_256_phys(const phys_bytes pa)
     pool_free_block_from_node(pa, PTBLK_256);
 }
 
-typedef uint32_t desc_t;
+/* --- Public API --- */
 
-typedef struct vm_space {
-    phys_bytes root_pa; // physical address of root table
-} vm_space_t;
+typedef uint32_t desc_t;
 
 static inline desc_t *ptr_table_va_from_desc(desc_t d)
 {
@@ -600,7 +600,7 @@ static desc_t *vm_walk_create(vm_space_t *as, virt_bytes va)
  * - `va` and `pa` must be page-aligned
  * - `pte_flags` is attributes only (no DESC_TYPE_* bits)
  */
-void vm_map_page(vm_space_t *as, virt_bytes va, phys_bytes pa, uint32_t pte_flags)
+void vm_space_map_page(vm_space_t *as, virt_bytes va, phys_bytes pa, uint32_t pte_flags)
 {
     LOG_T("as->root_pa=%08lx va=%08lx pa=%08lx flags=%08lx\n",
         as->root_pa,
@@ -635,24 +635,31 @@ void vm_map_page(vm_space_t *as, virt_bytes va, phys_bytes pa, uint32_t pte_flag
     *pte = mk_page_desc((uint32_t)pa, pte_flags);
 }
 
+void vm_space_init_user(vm_space_t *vm)
+{
+    LOG_T("Requesting new root table...\n");
+
+    vm->root_pa = pt_alloc_table_512_phys();
+    LOG_T("got 0x%08lx\n", as.root_pa);
+    if ((vm->root_pa & ~RPTABLE_ALIGN_MASK) != 0) {
+        LOG_E("Root table isn't aligned properly!\n");
+        __builtin_trap();
+    }
+}
+
 void vm_init(phys_bytes base, phys_bytes size, virt_bytes load_base)
 {
     LOG("base=%08lx size=%08lx load_base=%08lx\n", base, size, load_base);
     vm_space_t as = { 0 };
 
-    LOG_T("Requesting new root table...\n");
-    as.root_pa = pt_alloc_table_512_phys();
-    LOG_T("got 0x%08lx\n", as.root_pa);
-    if ((as.root_pa & ~RPTABLE_ALIGN_MASK) != 0) {
-        LOG_E("Root table isn't aligned properly!\n");
-        __builtin_trap();
-    }
+    // Use vm_space_init_user to get a root table
+    vm_space_init_user(&as);
 
     const size_t page_count = (size + (PAGE_SIZE - 1)) / PAGE_SIZE;
     for (size_t i = 0; i < page_count; i++)
     {
         const uint32_t offset = (uint32_t)(i * PAGE_SIZE);
-        vm_map_page(&as, load_base + offset, base + offset, KERNEL_PTE_FLAGS);
+        vm_space_map_page(&as, load_base + offset, base + offset, KERNEL_PTE_FLAGS);
     }
 
     mmu_print_040((uint32_t*)(uintptr_t)phys_to_virt(as.root_pa));
@@ -674,4 +681,14 @@ void vm_init(phys_bytes base, phys_bytes size, virt_bytes load_base)
         : "a"(as.root_pa)
         : "cc", "memory"
     );
+}
+
+// Clear the VM space, freeing resources associated with it
+// 1. Release all page tables
+// 2. Release all pointer tables
+// 3. Release the root table
+// This will require tracking the resources a space is using.
+void vm_space_destroy(vm_space_t *vm)
+{
+    
 }
