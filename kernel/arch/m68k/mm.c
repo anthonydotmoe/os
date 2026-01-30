@@ -687,8 +687,39 @@ void vm_init(phys_bytes base, phys_bytes size, virt_bytes load_base)
 // 1. Release all page tables
 // 2. Release all pointer tables
 // 3. Release the root table
-// This will require tracking the resources a space is using.
 void vm_space_destroy(vm_space_t *vm)
 {
-    
+    if (vm == NULL || vm->root_pa == 0) {
+        return;
+    }
+
+    desc_t *root = (desc_t*)(uintptr_t)phys_to_virt(vm->root_pa);
+    for (size_t ri = 0; ri < ROOT_ENTRIES; ri++) {
+        desc_t rd = root[ri];
+        if (desc_is_table(rd)) {
+            phys_bytes ptr_pa = (phys_bytes)(rd & RPTABLE_ADDR_MASK);
+            desc_t *ptr = (desc_t*)(uintptr_t)phys_to_virt(ptr_pa);
+
+            for (size_t pi = 0; pi < PTR_ENTRIES; pi++) {
+                desc_t pd = ptr[pi];
+                if (desc_is_table(pd)) {
+                    phys_bytes pg_pa = (phys_bytes)(pd & PGTABLE_ADDR_MASK);
+                    pt_free_table_256_phys(pg_pa);
+                    ptr[pi] = 0;
+                } else if (desc_is_page(pd)) {
+                    LOG_E("vm_space_destroy: page descriptor at ptr level (ri=%u pi=%u)\n",
+                        (unsigned)ri, (unsigned)pi);
+                }
+            }
+
+            pt_free_table_512_phys(ptr_pa);
+            root[ri] = 0;
+        } else if (desc_is_page(rd)) {
+            LOG_E("vm_space_destroy: page descriptor at root level (ri=%u)\n",
+                (unsigned)ri);
+        }
+    }
+
+    pt_free_table_512_phys(vm->root_pa);
+    vm->root_pa = 0;
 }
