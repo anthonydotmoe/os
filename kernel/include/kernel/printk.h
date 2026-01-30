@@ -28,6 +28,13 @@ int  snprintf_(char* buffer, size_t count, const char* format, ...);
 #define LOG(fmt, ...) \
     printk(LOG_PREPEND_FMT_STR_ fmt, LOG_PREPEND_FMT_ARG_ __VA_OPT__(,) __VA_ARGS__)
 
+// Trace
+#ifdef DEBUG
+#define LOG_T(fmt, ...) LOG(fmt, __VA_ARGS__)
+#else
+#define LOG_T(...)
+#endif
+
 // Light Blue
 #define LOG_I(fmt, ...) \
     printk(LOG_ANSI_SELECT_COLOR_BLU_ LOG_PREPEND_FMT_STR_ fmt LOG_ANSI_RESET_ATTRIBS_, LOG_PREPEND_FMT_ARG_ __VA_OPT__(,) __VA_ARGS__)
