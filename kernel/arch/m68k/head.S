@@ -4,8 +4,6 @@
 #include "asm/bootinfo.h"
 #include "asm/bootinfo_a68040pc.h"
 
-#define DEBUG
-
 /*
  *  Startup code
  * --------------------------------------------------------------------------
@@ -266,13 +264,6 @@ L(test_nota68040pc):
 		add.l	#KERNEL_VIRT_BASE,a1
 		move.l	a1,(a0)
 
-		/*  Welcome! and print debug information */
-		dputs	"\nWelcome to the kernel!\n"
-
-		dputs	"The kernel is located at:"
-		dputn	a1
-		dputc	'\n'
-
 		/*  Raise interrupt level */
 		move.w	#0x2700,sr
 
@@ -332,7 +323,9 @@ L(mmu_fixup):
 		bgt	1b
 L(mmu_fixup_done):
 
+#ifdef DEBUG
 		mmu_print L(kernel_pgdir_ptr)(pc)
+#endif
 
 L(begin_vm):
 		dputs	"\nEngaging the MMU...\n"
@@ -789,7 +782,6 @@ func_start	mmu_engage,d0-d2/a0-a3
 		move.l	phys_kernel_start(pc),d2
 
 		/* Engage the 040 MMU */
-		//mmu_print a3
 L(mmu_decisive_moment):
 		nop			/*  sync pipeline */
 		cinva	bc		/*  invalidate both caches */
@@ -969,7 +961,11 @@ func_start	get_new_page,d0/a1
 		dputc	'\n'
 func_return	get_new_page
 
-/* #ifdef MMU_PRINT */
+#ifdef DEBUG
+#define MMU_PRINT
+#endif
+
+#ifdef MMU_PRINT
 
 	/* 	mmu_print */
 	/* 	From Linux Kernel */
@@ -1219,7 +1215,7 @@ L(mmu_print_tuple_exit):
 		movem.l	(sp)+,d0-d7/a0
 		rts
 
-/* endif // MMU_PRINT */
+#endif /* MMU_PRINT */
 
 /*  Initialization data */
 /* ------------------------------------------------------------------------------- */
@@ -1230,12 +1226,14 @@ init_mapped_size:
 phys_kernel_start:
 		.long	0	/*  determined physical load address */
 
+#ifdef MMU_PRINT
 L(mmu_print_data):
 		.long	0	/*  valid flag */
 		.long	0	/*  start logical */
 		.long	0	/*  next logical */
 		.long	0	/*  start physical */
 		.long	0	/*  next physical */
+#endif /* MMU_PRINT */
 
 L(mmu_ptr_table_alloc_cursor):
 		.long	0	/*  */
