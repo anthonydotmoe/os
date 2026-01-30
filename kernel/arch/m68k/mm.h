@@ -17,6 +17,8 @@ void pmm_reserve_range(phys_bytes base, phys_bytes size);
 // Release a region of physical memory
 void pmm_release_range(phys_bytes base, phys_bytes size);
 
+void pmm_print_free_mem(void);
+
 void vm_init(phys_bytes base, phys_bytes size, virt_bytes load_base);
 
 void mm_init(void);
