@@ -57,10 +57,13 @@ void __init arch_early_init(void)
 
     // Build a new kernel page-table tree using PMM (not the boot bump area)
     // `vm_init` must switch SRP to the new tree before returning.
-    phys_bytes p_stext = virt_to_phys((virt_bytes)(uintptr_t)_start_kernel_image);
-    phys_bytes p_end   = virt_to_phys((virt_bytes)(uintptr_t)_start_kernel_image + (1024 * 1024));
-    virt_bytes v_stext = (virt_bytes)(uintptr_t)_start_kernel_image;
-    vm_init(p_stext, p_end - p_stext, v_stext);
+    // Map all of memory for simplicity
+    phys_bytes mem_start = p->ranges[0].addr;
+    phys_bytes mem_size  = p->ranges[0].size;
+    virt_bytes v_base    = phys_to_virt(mem_start);
+    vm_init(mem_start, mem_size, v_base);
+
+    pmm_print_free_mem();
 
     // Now that we're not using the boot bump-allocated PT pages anymore,
     // free the bump region.
@@ -69,6 +72,7 @@ void __init arch_early_init(void)
     if (old_pt_end > old_pt_base) {
         pmm_release_range(old_pt_base, old_pt_end - old_pt_base);
     }
+    pmm_print_free_mem();
 }
 
 static void __init parse_bootinfo(const struct bi_record *record)
