@@ -26,14 +26,15 @@ SRCS_C	:= \
 	printk.c \
 	lib/format.c \
 	arch/m68k/earlycon.c \
-	arch/m68k/mm_debug.c \
+	arch/m68k/exception.c \
 	arch/m68k/mm.c \
-	arch/m68k/setup.c \
-	arch/m68k/exception.c
+	arch/m68k/mm_debug.c \
+	arch/m68k/setup.c
 
 SRCS_S	:= \
+	arch/m68k/entry.S \
 	arch/m68k/head.S \
-	arch/m68k/entry.S
+	arch/m68k/klib.S
 
 OBJS := $(SRCS_C:%.c=$(KOUT)/%.o) $(SRCS_S:%.S=$(KOUT)/%.o)
 DEPS := $(OBJS:.o=.d)
