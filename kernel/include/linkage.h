@@ -1,6 +1,6 @@
 #pragma once
 
-#include <asm/stringify.h>
+#include "stringify.h"
 
 #ifndef CONFIG_FUNCTION_ALIGNMENT
 #define CONFIG_FUNCTION_ALIGNMENT 8
@@ -17,6 +17,12 @@
 #endif
 
 #ifdef __ASSEMBLER__
+
+#define _C_LABEL(x)		x
+#define _ASM_LABEL(x)	x
+
+#define IMPORT(sym)		 \
+	.extern _C_LABEL(sym)
 
 /* SYM_T_FUNC -- type used by assembler to mark functions */
 #ifndef SYM_T_FUNC

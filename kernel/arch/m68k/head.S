@@ -1,8 +1,8 @@
 #include <form_os/config.h>
 
-#include "asm/linkage.h"
-#include "asm/bootinfo.h"
-#include "asm/bootinfo_a68040pc.h"
+#include "linkage.h"
+#include "arch/bootinfo.h"
+#include "arch/bootinfo_a68040pc.h"
 
 /*
  *  Startup code
@@ -16,6 +16,8 @@
 .globl phys_kernel_start
 .globl availmem
 .globl init_mapped_size
+
+IMPORT(exc_vector_table)
 
 /* Translation control register */
 TC_ENABLE = 0x8000
@@ -331,6 +333,9 @@ L(begin_vm):
 		dputs	"\nEngaging the MMU...\n"
 		mmu_engage
 		dputs	" Done!\n"
+
+		lea	exc_vector_table,a0
+		movec	a0,vbr
 
 
 		/*  After this point no new memory is allocated and */

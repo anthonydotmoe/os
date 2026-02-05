@@ -9,7 +9,7 @@ are converted to signals. Exceptions in a kernel task cause a panic.
 #include <form_os/type.h>
 
 #include "kernel/printk.h"
-#include "exception.h"
+#include "arch/exception.h"
 
 typedef enum {
     K_SIG_NONE = 0,
@@ -260,6 +260,48 @@ static void panic_kernel_exception(uint8_t vec, saved_regs_t *r, exc_frame_heade
     while (1) __asm__ __volatile__ ("stop #0x2700" : : : "cc");
 }
 
+#define SET_SFC(x) \
+    __asm__ __volatile__ (" movec %0,%/sfc" : : "d" (x))
+
+#define SET_DFC(x) \
+    __asm__ __volatile__ (" movec %0,%/dfc" : : "d" (x))
+
+#define GET_BYTE(addr,value) \
+    __asm__ __volatile__ (" moves.b %1@, %0": "=d"(value) : "a"(addr))
+
+void syscall_dispatch(saved_regs_t *r, exc_frame_header_t *f)
+{
+    (void)f;
+    const uint32_t call_no = r->d0;
+    LOG("Got syscall: %d\n", call_no);
+
+    if (call_no == 1) {
+        // print(char*, size)
+        LOG("print(str=0x%08lx, size=%u)\n", r->d1, r->d2);
+        uintptr_t str = (uintptr_t)r->d1;
+
+        // Try retrieving the string using `moves`
+#define FC_U_DATA 0b001
+#define FC_S_DATA 0b101
+
+        SET_SFC(FC_U_DATA);
+        SET_DFC(FC_S_DATA);
+
+        unsigned char c;
+        GET_BYTE(str, c);
+        while (c != 0) {
+            GET_BYTE(str, c);
+            kputchar((int)c);
+            str += 1;
+        }
+
+    }
+    if (call_no == 9) {
+        LOG("exit()\n");
+    }
+    return;
+}
+
 void ExceptionHandler_c(saved_regs_t *r)
 {
     exc_frame_header_t *f = (exc_frame_header_t*)((uint8_t *)r + sizeof(*r));
@@ -267,10 +309,10 @@ void ExceptionHandler_c(saved_regs_t *r)
 
     // Special case: syscall vector
     if (vec == SYSCALL_VECTOR) {
-//        if (exc_from_user(f)) {
-//            syscall_dispatch(r, f);
-            return; // assembly stuf will restore regs and RTE
-//        }
+        if (exc_from_user(f)) {
+            syscall_dispatch(r, f);
+            return; // assembly stuff will restore regs and RTE
+        }
         // syscall trap from supervisor is a kernel bug
         panic_kernel_exception(vec, r, f);
     }
@@ -288,27 +330,4 @@ void ExceptionHandler_c(saved_regs_t *r)
     }
 
     panic_kernel_exception(vec, r, f);
-}
-
-// .bss section EVT, aligned for 68040
-static uint32_t evt_space[256] __attribute__((used, aligned(8)));
-extern char ExceptionHandler[];
-void traps_init(void)
-{
-    virt_bytes evt = (virt_bytes)(uintptr_t)evt_space;
-
-    // Get the logical address of the exception handler
-    uint32_t handler = (uint32_t)(uintptr_t)(ExceptionHandler);
-    
-    LOG("Filling in vector table at: 0x%08x\n", evt);
-
-    uint32_t* p = (uint32_t*)(uintptr_t)evt;
-    for (int i = 0; i < 256; i++)
-    {
-        *p++ = handler;
-    }
-
-    // Set the VBR to the new table
-    __asm__ __volatile__ (" movec %0,%/vbr" : : "r"(evt));
-    LOG("Done.\n");
 }

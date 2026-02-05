@@ -90,5 +90,3 @@ static inline size_t exc_frame_size_types(uint8_t fmt)
         default: return 8; // Usually it's a "normal" 4-word stack frame
     }
 }
-
-void traps_init(void);

@@ -6,14 +6,12 @@
 #include "asm/init.h"
 #include "asm/sections.h"
 #include "arch/boot.h"
-#include "asm/bootinfo.h"
+#include "arch/bootinfo.h"
 #include "kernel/mm.h"
 #include "kernel/printk.h"
 
-#include "head.h"
-#include "mm.h"
-#include "exception.h"
-#include "pgtable.h"
+#include "arch/head.h"
+#include "arch/mm.h"
 
 // filled in by head.S
 unsigned long bi_machtype;
@@ -32,9 +30,6 @@ static struct boot_params params __initdata = { 0 };
 */
 void __init arch_early_init(void)
 {
-    // Set up exception vector table
-    traps_init();
-
     /* Seed the physical memory manager */
     // Hack: boot_params() here to not be dependent on when the kernel calls it
     const struct boot_params* p = boot_params();

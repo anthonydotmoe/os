@@ -1,6 +1,6 @@
 #include <stdint.h>
 
-#include "uart68681.h"
+#include "arch/uart68681.h"
 #include "arch/earlycon.h"
 
 // Hard-coded DUART at 0x2000_0000 for now

@@ -1,4 +1,4 @@
-#include <asm/linkage.h>
+#include "linkage.h"
 
 	.section .text
 	.balign 8

@@ -5,7 +5,7 @@ MAPOUT := $(KOUT)/kernel.map
 SYSROOT  := $(O)/sysroot
 LIBDIR   := $(SYSROOT)/lib
 LIBS     := $(LIBDIR)/libprintf.a
-CPPFLAGS += -Iinclude -I$(SYSROOT)/include
+CPPFLAGS += -Iinclude -Iinclude/arch/m68k -I$(SYSROOT)/include
 
 LDS_SRC  := arch/m68k/link.ld.S
 LDS_OUT  := $(KOUT)/link.ld
@@ -24,6 +24,8 @@ SRCS_C	:= \
 	main.c \
 	early_alloc.c \
 	printk.c \
+	proc.c \
+	system.c \
 	lib/format.c \
 	arch/m68k/earlycon.c \
 	arch/m68k/exception.c \
@@ -33,6 +35,7 @@ SRCS_C	:= \
 
 SRCS_S	:= \
 	arch/m68k/entry.S \
+	arch/m68k/exc.S \
 	arch/m68k/head.S \
 	arch/m68k/klib.S
 

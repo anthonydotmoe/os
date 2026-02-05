@@ -10,10 +10,10 @@
 #include "kernel/printk.h"
 #include "kernel/format.h"
 #include "kernel/mm.h"
-#include "head.h"
-#include "mm.h"
-#include "mm_debug.h"
-#include "pgtable.h"
+#include "arch/head.h"
+#include "arch/mm.h"
+#include "arch/mm_debug.h"
+#include "arch/pgtable.h"
 
 #define ARRAY_LEN(x) (sizeof(x) / sizeof((x)[0]))
 
@@ -521,6 +521,25 @@ static void pt_free_table_256_phys(const phys_bytes pa)
     pool_free_block_from_node(pa, PTBLK_256);
 }
 
+/* --- VM state --- */
+
+struct vm_space {
+    phys_bytes root_pa; // physical address of root table
+};
+typedef struct vm_space vm_space_t;
+
+static vm_space_t g_kernel_space;
+
+#include "arch/context.h"
+
+typedef struct process {
+    m68k_user_ctx_t p_reg;
+    int id;
+    vm_space_t vm;
+} process_t;
+
+static process_t proc_table[32];
+
 /* --- Public API --- */
 
 typedef uint32_t desc_t;
@@ -647,22 +666,23 @@ void vm_space_init_user(vm_space_t *vm)
     }
 }
 
+static void user_proc_testing(void);
+
 void vm_init(phys_bytes base, phys_bytes size, virt_bytes load_base)
 {
     LOG("base=%08lx size=%08lx load_base=%08lx\n", base, size, load_base);
-    vm_space_t as = { 0 };
 
     // Use vm_space_init_user to get a root table
-    vm_space_init_user(&as);
+    vm_space_init_user(&g_kernel_space);
 
     const size_t page_count = (size + (PAGE_SIZE - 1)) / PAGE_SIZE;
     for (size_t i = 0; i < page_count; i++)
     {
         const uint32_t offset = (uint32_t)(i * PAGE_SIZE);
-        vm_space_map_page(&as, load_base + offset, base + offset, KERNEL_PTE_FLAGS);
+        vm_space_map_page(&g_kernel_space, load_base + offset, base + offset, KERNEL_PTE_FLAGS);
     }
 
-    mmu_print_040((uint32_t*)(uintptr_t)phys_to_virt(as.root_pa));
+    mmu_print_040((uint32_t*)(uintptr_t)phys_to_virt(g_kernel_space.root_pa));
     print_ptpool();
 
     // Set SRP to the new root pointer
@@ -678,9 +698,11 @@ void vm_init(phys_bytes base, phys_bytes size, virt_bytes load_base)
         "nop                \n\t"
         "pflusha            \n\t"
         :
-        : "a"(as.root_pa)
+        : "a"(g_kernel_space.root_pa)
         : "cc", "memory"
     );
+
+    user_proc_testing();
 }
 
 // Clear the VM space, freeing resources associated with it
@@ -722,4 +744,52 @@ void vm_space_destroy(vm_space_t *vm)
 
     pt_free_table_512_phys(vm->root_pa);
     vm->root_pa = 0;
+}
+
+/* -------- Let's see if I can make a user process ------------ */
+
+__attribute__((used))
+static uint8_t proc_exe[] = {
+    #embed "./../../../process/a.out"
+};
+
+extern void restore_user_context(m68k_user_ctx_t *ctx);
+
+static void user_proc_testing(void)
+{
+    process_t* proc = &proc_table[0];
+    
+    // Create an address space for the process
+    vm_space_init_user(&proc->vm);
+
+    // Give it a page
+    phys_bytes proc_page = pmm_alloc_page();
+
+    // Map the page into the process's address space
+    virt_bytes proc_base = 0x40000000;
+    vm_space_map_page(&proc->vm, proc_base, proc_page, USER_RO_FLAGS);
+
+    // Copy the process text into the space
+    for (size_t i = 0; i < ARRAY_LEN(proc_exe); i++)
+    {
+        ((uint8_t*)(uintptr_t)phys_to_virt(proc_page))[i] = proc_exe[i];
+    }
+
+    // Clear registers
+    for (int i = 0; i < 6; i++)
+        proc->p_reg.a[i] = 0;
+    for (int i = 0; i < 7; i++)
+        proc->p_reg.d[i] = 0;
+    proc->p_reg.sr  = 0;
+
+    proc->p_reg.pc  = 0x40000000;
+    proc->p_reg.usp = 0x40001000;
+    __asm__ __volatile__(
+        "movec  %0,%%urp\n\t"           // set URP to new process
+        :
+        : "r"(proc->vm.root_pa)
+        : "cc", "memory"
+    );
+
+    restore_user_context((m68k_user_ctx_t *)proc);
 }

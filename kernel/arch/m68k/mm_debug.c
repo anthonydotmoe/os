@@ -3,7 +3,7 @@
 
 #include "kernel/mm.h"
 #include "kernel/printk.h"
-#include "head.h"
+#include "arch/head.h"
 
 enum {
     PAGE_SHIFT      = 12,
